@@ -21,7 +21,7 @@ public class DataInitializer implements CommandLineRunner {
     private CategoryRepo categoryRepository;
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         Scanner scanner = new Scanner(System.in);
         boolean exit = false;
 
@@ -31,19 +31,29 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("\nChoose an operation:");
             System.out.println("1. Create Product");
             System.out.println("2. View Products");
-            System.out.println("3. Update Product");
-            System.out.println("4. Delete Product");
-            System.out.println("5. Exit");
+            System.out.println("3. View Product By ID"); 
+            System.out.println("4. Update Product");
+            System.out.println("5. Delete Product");
+            System.out.println("6. Exit");
+
 
             System.out.print("Enter your choice: ");
-            int choice = Integer.parseInt(scanner.nextLine());
+            int choice;
+            try {
+                choice = Integer.parseInt(scanner.nextLine());
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid choice. Please enter a number.");
+                continue;
+            }
 
             switch (choice) {
-                case 1 -> createProduct(scanner);
-                case 2 -> viewProducts();
-                case 3 -> updateProduct(scanner);
-                case 4 -> deleteProduct(scanner);
-                case 5 -> exit = true;
+            case 1 -> createProduct(scanner);
+            case 2 -> viewProducts();
+            case 3 -> viewProductById(scanner); 
+            case 4 -> updateProduct(scanner);
+            case 5 -> deleteProduct(scanner);
+            case 6 -> exit = true;
+
                 default -> System.out.println("Invalid choice. Please try again.");
             }
         }
@@ -64,9 +74,17 @@ public class DataInitializer implements CommandLineRunner {
             category = new Category();
             category.setName(categoryName);
             category = categoryRepository.save(category);
+            System.out.println("New category created with ID: " + category.getId());
         } else {
+        	try {
             category = categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new RuntimeException("Category not found with ID " + categoryId));
+                    .orElseThrow(() -> new CategoryNotFoundException("Category not found with ID " + categoryId));
+            System.out.println("Category found: " + category.getName());
+            } catch (CategoryNotFoundException e) {
+                System.out.println(e.getMessage());
+                return; 
+            }
+
         }
 
         Product product = new Product();
@@ -91,37 +109,93 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println("Product created successfully!");
     }
 
-    private void viewProducts() {
-        System.out.println("\n--- View Products ---");
+private void viewProducts() {
+    System.out.println("\n--- View Products ---");
+
+    try {
         Iterable<Product> products = productRepository.findAll();
 
-        for (Product product : products) {
-            System.out.println(product);
+        if (!products.iterator().hasNext()) {
+            System.out.println("No products found.");
+            return;
         }
+
+        for (Product product : products) {
+            System.out.println("Product ID: " + product.getId());
+            System.out.println("Name: " + product.getName());
+            System.out.println("Description: " + product.getDescription());
+            System.out.println("Price: " + product.getPrice());
+            System.out.println("Quantity: " + product.getQuantity());
+            System.out.println("Status: " + product.getStatus());
+            System.out.println("Category: " + (product.getCategory() != null ? product.getCategory().getName() : "No Category"));
+            System.out.println("-----------------------------------");
+        }
+    } catch (Exception e) {
+        System.out.println("An error occurred while retrieving products: " + e.getMessage());
     }
+}
+
+private void viewProductById(Scanner scanner) {
+    System.out.println("\n--- View Product By ID ---");
+
+    try {
+        System.out.print("Enter Product ID: ");
+        Long productId = Long.parseLong(scanner.nextLine());
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found with ID: " + productId));
+
+        // Display product details
+        System.out.println("Product ID: " + product.getId());
+        System.out.println("Name: " + product.getName());
+        System.out.println("Description: " + product.getDescription());
+        System.out.println("Price: " + product.getPrice());
+        System.out.println("Quantity: " + product.getQuantity());
+        System.out.println("Status: " + product.getStatus());
+        System.out.println("Category: " + (product.getCategory() != null ? product.getCategory().getName() : "No Category"));
+
+    } catch (NumberFormatException e) {
+        System.out.println("Invalid input. Please enter a valid numeric ID.");
+    } catch (RuntimeException e) {
+        System.out.println(e.getMessage());
+    } catch (Exception e) {
+        System.out.println("An unexpected error occurred: " + e.getMessage());
+    }
+}
+
 
     private void updateProduct(Scanner scanner) {
         System.out.println("\n--- Update Product ---");
 
         System.out.print("Enter product ID to update: ");
         Long productId = Long.parseLong(scanner.nextLine());
-        Product product = productRepository.findById(productId)
+        Product product;
+        try {
+        product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found with ID " + productId));
-
+        } catch (RuntimeException e) {
+            System.out.println(e.getMessage());
+            return;
+        }
         System.out.print("Enter new product name (current: " + product.getName() + "): ");
-        product.setName(scanner.nextLine());
+        String newName = scanner.nextLine();
+        product.setName(newName.isBlank() ? product.getName() : newName);
 
         System.out.print("Enter new product description (current: " + product.getDescription() + "): ");
-        product.setDescription(scanner.nextLine());
+        String newDescription = scanner.nextLine();
+        product.setDescription(newDescription.isBlank() ? product.getDescription() : newDescription);
 
         System.out.print("Enter new product price (current: " + product.getPrice() + "): ");
-        product.setPrice(Double.parseDouble(scanner.nextLine()));
+        String newPrice = scanner.nextLine();
+        product.setPrice(newPrice.isBlank() ? product.getPrice() : Double.parseDouble(newPrice));
 
         System.out.print("Enter new product quantity (current: " + product.getQuantity() + "): ");
-        product.setQuantity(Integer.parseInt(scanner.nextLine()));
+        String newQuantity = scanner.nextLine();
+        product.setQuantity(newQuantity.isBlank() ? product.getQuantity() : Integer.parseInt(newQuantity));
 
         System.out.print("Enter new product status (current: " + product.getStatus() + "): ");
-        product.setStatus(scanner.nextLine());
+        String newStatus = scanner.nextLine();
+        product.setStatus(newStatus.isBlank() ? product.getStatus() : newStatus);
 
         productRepository.save(product);
         System.out.println("Product updated successfully!");
@@ -132,12 +206,32 @@ public class DataInitializer implements CommandLineRunner {
 
         System.out.print("Enter product ID to delete: ");
         Long productId = Long.parseLong(scanner.nextLine());
-
-        if (productRepository.existsById(productId)) {
-            productRepository.deleteById(productId);
-            System.out.println("Product deleted successfully!");
-        } else {
-            System.out.println("Product not found with ID " + productId);
+        try {
+	        if (productRepository.existsById(productId)) {
+	            productRepository.deleteById(productId);
+	            System.out.println("Product with ID " + productId + " deleted successfully!");
+	        } else {
+	            throw new ProductNotFoundException("Product not found with ID " + productId);
+	        }
+        } catch (RuntimeException e) {
+            System.out.println(e.getMessage());
         }
     }
+
+    // Custom Exception Class
+    public static class CategoryNotFoundException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        public CategoryNotFoundException(String message) {
+            super(message);
+        }
+    }
+    public class ProductNotFoundException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        public ProductNotFoundException(String message) {
+            super(message);
+        }
+    }
+
 }
